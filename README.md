@@ -58,7 +58,7 @@ Set the `project` attribute to the `Project ref` which you can find on your trig
 Then set the URL for your Trigger.dev job runner in your local `.env` file:
 
 ~~~
-TRIGGER_SERVER_URL=<your trigger.dev url>
+TRIGGER_NER_SERVER_URL=<your trigger.dev url>
 ~~~
 
 Now deploy your tasks to the `Trigger.dev` server by executing the following command at the root of this project repo:

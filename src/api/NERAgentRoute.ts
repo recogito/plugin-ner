@@ -10,9 +10,9 @@ const supabaseAPIKey = import.meta.env.PUBLIC_SUPABASE_API_KEY;
 
 configure({
   secretKey:
-    process?.env.TRIGGER_SECRET_KEY || import.meta.env.TRIGGER_SECRET_KEY,
+    process?.env.TRIGGER_NER_SECRET_KEY || import.meta.env.TRIGGER_NER_SECRET_KEY,
   baseURL:
-    process?.env.TRIGGER_SERVER_URL || import.meta.env.TRIGGER_SERVER_URL,
+    process?.env.TRIGGER_NER_SERVER_URL || import.meta.env.TRIGGER_NER_SERVER_URL,
 });
 
 export const PUT: APIRoute = async ({ request, params, cookies }) => {
