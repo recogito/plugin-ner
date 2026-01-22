@@ -26,45 +26,23 @@ CORENLP_URL_DE=<url of CoreNLP German service>
 
 To deploy the required tasks to your Trigger.dev job runner you will need to update your [trigger.config.ts file](./src/trigger.config.ts) located in the `/src` directory.
 
-~~~
-import { defineConfig } from '@trigger.dev/sdk/v3';
+In your local `.env` file:
 
-export default defineConfig({
-  project: 'proj_fyeypkhgyaejpiweobwq',
-  runtime: 'node',
-  logLevel: 'log',
-  // The max compute seconds a task is allowed to run. If the task run exceeds this duration, it will be stopped.
-  // You can override this on an individual task.
-  // See https://trigger.dev/docs/runs/max-duration
-  maxDuration: 3600,
-  retries: {
-    enabledInDev: true,
-    default: {
-      maxAttempts: 3,
-      minTimeoutInMs: 1000,
-      maxTimeoutInMs: 10000,
-      factor: 2,
-      randomize: true,
-    },
-  },
-  dirs: ['./trigger'],
-});
+- Set the `TRIGGER_NER_SECRET_KEY` variable to the `Secret key` which you can find on your trigger project's `API keys` tab.
+- Set `TRIGGER_SERVER_URL` to the URL for your local Trigger.dev job runner, if you are using one.
+
+~~~
+TRIGGER_NER_SECRET_KEY=<your trigger.dev secret key>
+TRIGGER_SERVER_URL=<your trigger.dev url>
 ~~~
 
-Set the `project` attribute to the `Project ref` which you can find on your trigger project's `Project settings` tab.
+
+Now deploy your tasks to the `Trigger.dev` server by executing the following command at the root of this project repo, replacing `<project-ref>` with the `Project ref` that you can find on your trigger project's `Project settings` tab.
 
 ![](./doc-assets/trigger-project.png)
 
-Then set the URL for your Trigger.dev job runner in your local `.env` file:
-
 ~~~
-TRIGGER_NER_SERVER_URL=<your trigger.dev url>
-~~~
-
-Now deploy your tasks to the `Trigger.dev` server by executing the following command at the root of this project repo:
-
-~~~
-npx trigger.dev@latest deploy -c ./src/trigger.config.ts
+npx trigger.dev@latest deploy -c ./src/trigger.config.ts -p <project-ref>
 ~~~
 
 This will build containers for your tasks and deploy them to the `Trigger.dev` job runner.
