@@ -28,21 +28,21 @@ To deploy the required tasks to your Trigger.dev job runner you will need to upd
 
 In your local `.env` file:
 
+- Set the `TRIGGER_NER_PROJECT_ID` variable to the `Project ref` that you can find on your trigger project's `Project settings` tab:
+  ![](./doc-assets/trigger-project.png)
 - Set the `TRIGGER_NER_SECRET_KEY` variable to the `Secret key` which you can find on your trigger project's `API keys` tab.
 - Set `TRIGGER_SERVER_URL` to the URL for your local Trigger.dev job runner, if you are using one.
 
 ~~~
+TRIGGER_NER_PROJECT_ID=<your trigger.dev project ref>
 TRIGGER_NER_SECRET_KEY=<your trigger.dev secret key>
 TRIGGER_SERVER_URL=<your trigger.dev url>
 ~~~
 
-
-Now deploy your tasks to the `Trigger.dev` server by executing the following command at the root of this project repo, replacing `<project-ref>` with the `Project ref` that you can find on your trigger project's `Project settings` tab.
-
-![](./doc-assets/trigger-project.png)
+Now deploy your tasks to the `Trigger.dev` server by executing the following command at the root of this project repo:
 
 ~~~
-npx trigger.dev@latest deploy -c ./src/trigger.config.ts -p <project-ref>
+npx trigger.dev@latest deploy -c ./src/trigger.config.ts
 ~~~
 
 This will build containers for your tasks and deploy them to the `Trigger.dev` job runner.
