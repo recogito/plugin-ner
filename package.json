@@ -43,6 +43,7 @@
     "@recogito/studio-sdk": "^0.6.7",
     "@supabase/supabase-js": "^2.49.7",
     "@trigger.dev/sdk": "4.3.2",
+    "dotenv": "^17.2.3",
     "tus-js-client": "^4.3.1",
     "uuid": "^11.1.0"
   }
