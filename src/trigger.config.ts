@@ -1,7 +1,9 @@
 import { defineConfig } from '@trigger.dev/sdk/v3';
+import { syncEnvVars } from '@trigger.dev/build/extensions/core';
+import 'dotenv/config';
 
 export default defineConfig({
-  project: 'proj_fyeypkhgyaejpiweobwq',
+  project: process.env.TRIGGER_NER_PROJECT_ID || '',
   runtime: 'node',
   logLevel: 'log',
   // The max compute seconds a task is allowed to run. If the task run exceeds this duration, it will be stopped.
@@ -19,4 +21,14 @@ export default defineConfig({
     },
   },
   dirs: ['./trigger'],
+  build: {
+    extensions: [
+      syncEnvVars(async (ctx) => {
+        return [
+          { name: 'CORENLP_URL_EN', value: process.env.CORENLP_URL_EN || '' },
+          { name: 'CORENLP_URL_DE', value: process.env.CORENLP_URL_DE || '' },
+        ];
+      }),
+    ],
+  },
 });

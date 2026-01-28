@@ -23,7 +23,7 @@
     "./NERAgentRoute.ts": "./dist/api/NERAgentRoute.js"
   },
   "devDependencies": {
-    "@trigger.dev/build": "^3.3.17",
+    "@trigger.dev/build": "4.3.2",
     "@types/node": "^22.15.21",
     "@types/react": "^19.1.4",
     "@types/react-dom": "^19.1.5",
@@ -42,7 +42,8 @@
     "@recogito/standoff-converter": "^0.1.10",
     "@recogito/studio-sdk": "^0.6.7",
     "@supabase/supabase-js": "^2.49.7",
-    "@trigger.dev/sdk": "^3.3.17",
+    "@trigger.dev/sdk": "4.3.2",
+    "dotenv": "^17.2.3",
     "tus-js-client": "^4.3.1",
     "uuid": "^11.1.0"
   }

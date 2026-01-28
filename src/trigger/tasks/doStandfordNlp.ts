@@ -133,12 +133,12 @@ const entityMapping: {
 
 const CoreNLPUrlEN =
   process?.env.CORENLP_URL_EN ||
-  import.meta.env.CORENLP_URL_EN ||
+  import.meta.env?.CORENLP_URL_EN ||
   'http://localhost:9000';
 
 const CoreNLPUrlDE =
   process?.env.CORENLP_URL_DE ||
-  import.meta.env.CORENLP_URL_DE ||
+  import.meta.env?.CORENLP_URL_DE ||
   'http://localhost:9000';
 
 const MAX_LENGTH = 5000;
