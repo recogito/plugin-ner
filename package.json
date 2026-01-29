@@ -1,6 +1,6 @@
 {
   "name": "@recogito/plugin-ner",
-  "version": "0.4.1-beta",
+  "version": "0.4.1",
   "description": "Recogito Studio plugin which can perform Named Entity Recognition on TEI and Plain Text.",
   "type": "module",
   "main": "dist/index.js",
