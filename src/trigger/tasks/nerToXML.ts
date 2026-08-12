@@ -6,10 +6,16 @@ import type { Element as XmlElement } from '@xmldom/xmldom';
 import * as uuid from 'uuid';
 
 /**
- * The standoff-converter puts tag references on a nested `<rs ana="#tag"/>`,
- * but the Recogito Studio client reads `ana` directly off `<annotation>`.
- * Hoist it up so the client sees the tags; otherwise annotations import with
- * no bodies and render as unsaved.
+ * Backward-compat shim: older `@recogito/standoff-converter` versions put tag
+ * references on a nested `<rs ana="#tag"/>`, but the Recogito Studio client
+ * reads `ana` directly off `<annotation>`.
+ * 
+ * The converter now emits `ana` on `<annotation>` itself (see its
+ * annotation-to-xml crosswalk), so for current output this is a no-op. 
+ * Kept as a precaution while documents produced by older converter versions
+ * are still in circulation.
+ * 
+ * See: https://github.com/recogito/plugin-ner/pull/5#issuecomment-5263203227
  */
 const hoistAnaOntoAnnotations = (tei: string): string => {
   const doc = new DOMParser().parseFromString(tei, 'text/xml');
