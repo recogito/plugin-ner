@@ -1,6 +1,6 @@
 {
   "name": "@recogito/plugin-ner",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "Recogito Studio plugin which can perform Named Entity Recognition on TEI and Plain Text.",
   "type": "module",
   "main": "dist/index.js",
@@ -27,7 +27,7 @@
     "@types/node": "^22.15.21",
     "@types/react": "^19.1.4",
     "@types/react-dom": "^19.1.5",
-    "astro": "^5.7.13",
+    "astro": "^7.0.0",
     "copyfiles": "^2.4.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
@@ -39,12 +39,13 @@
     "@radix-ui/react-dropdown-menu": "^2.1.15",
     "@radix-ui/react-label": "^2.1.7",
     "@radix-ui/react-select": "^2.2.5",
-    "@recogito/standoff-converter": "^0.1.10",
-    "@recogito/studio-sdk": "^0.6.7",
+    "@recogito/standoff-converter": "^0.2.0",
+    "@recogito/studio-sdk": "^0.9.1",
     "@supabase/supabase-js": "^2.49.7",
     "@trigger.dev/sdk": "4.3.3",
+    "@xmldom/xmldom": "^0.9.10",
     "dotenv": "^17.2.3",
     "tus-js-client": "^4.3.1",
-    "uuid": "^11.1.0"
+    "uuid": "^14.0.1"
   }
 }
