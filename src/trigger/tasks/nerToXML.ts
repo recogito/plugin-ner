@@ -1,4 +1,3 @@
-import { task } from '@trigger.dev/sdk/v3';
 import type { NERResults } from '../types';
 import { parseXML } from '@recogito/standoff-converter';
 import { DOMParser, XMLSerializer } from '@xmldom/xmldom';
@@ -49,12 +48,9 @@ const hoistAnaOntoAnnotations = (tei: string): string => {
   return new XMLSerializer().serializeToString(doc);
 };
 
-export const nerToXML = task({
-  id: 'ner-to-xml',
-  run: async (
-    payload: { nerData: NERResults; text: string; originalXML?: string },
-    { ctx }
-  ) => {
+export const nerToXML = async (
+  payload: { nerData: NERResults; text: string; originalXML?: string }
+) => {
     const { nerData, text, originalXML } = payload;
 
     let xml: string | undefined = originalXML;
@@ -114,5 +110,4 @@ export const nerToXML = task({
 
     const tei = hoistAnaOntoAnnotations(standoff.xmlString());
     return { tei };
-  },
-});
+};
