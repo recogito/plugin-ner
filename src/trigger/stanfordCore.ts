@@ -1,12 +1,12 @@
-import { task, configure, logger } from '@trigger.dev/sdk/v3';
+import { task, logger } from '@trigger.dev/sdk/v3';
 import * as uuid from 'uuid';
-import { uploadDocumentToRS } from './tasks/uploadDocumentToRS';
-import { doStanfordNlp } from './tasks/doStandfordNlp';
-import { nerToXML } from './tasks/nerToXML';
-import { plainTextToXML } from './tasks/plainTextToXML';
+import { uploadDocumentToRS } from './tasks/uploadDocumentToRS.js';
+import { doStanfordNlp } from './tasks/doStandfordNlp.js';
+import { nerToXML } from './tasks/nerToXML.js';
+import { plainTextToXML } from './tasks/plainTextToXML.js';
 import { createClient } from '@supabase/supabase-js';
 import { Document } from '@recogito/studio-sdk';
-import { xmlToPlainText } from './tasks/xmlToPlainText';
+import { xmlToPlainText } from './tasks/xmlToPlainText.js';
 
 const translations = (docName: string) => ({
   success: {
@@ -25,6 +25,7 @@ const translations = (docName: string) => ({
 
 export const stanfordCore = task({
   id: 'stanford-core',
+  retry: { maxAttempts: 1 },
   run: async (payload: {
     serverURL: string;
     projectId: string;
@@ -80,65 +81,70 @@ export const stanfordCore = task({
         const initialText = await data.text();
 
         logger.info('Calling Plain Text to XML');
-        const res = await plainTextToXML
-          .triggerAndWait({ text: initialText })
-          .unwrap();
+        const res = await plainTextToXML({ text: initialText });
 
         text = res.text;
         xml = res.xml;
       } else {
         const initialXML = await data.text();
         logger.info('Calling XML to Plain Text');
-        const res = await xmlToPlainText
-          .triggerAndWait({ xml: initialXML })
-          .unwrap();
+        const res = await xmlToPlainText({ xml: initialXML });
 
         text = res.text;
         xml = res.xml;
       }
 
       logger.info('Calling NLP NER');
-      const { ner } = await doStanfordNlp
-        .triggerAndWait({
-          data: text,
-          language: payload.language,
-          outputLanguage: payload.outputLanguage,
-        })
-        .unwrap();
+      const { ner } = await doStanfordNlp({
+        data: text,
+        language: payload.language,
+        outputLanguage: payload.outputLanguage,
+      });
 
-      const { tei } = await nerToXML
-        .triggerAndWait({ nerData: ner, text, originalXML: xml })
-        .unwrap();
+      const { tei } = await nerToXML({
+        nerData: ner,
+        text,
+        originalXML: xml,
+      });
+
+      logger.info('NER output prepared', {
+        textBytes: Buffer.byteLength(text, 'utf8'),
+        teiBytes: Buffer.byteLength(tei, 'utf8'),
+        entityCount: ner.entries.length,
+      });
 
       const id = uuid.v4();
 
       logger.info('Upload to Recogito Studio');
       // Upload to Recogito Studio;
-      const res = await uploadDocumentToRS
-        .triggerAndWait({
-          id: id,
-          documentData: tei,
-          name: `${payload.nameOut}.xml`,
-          type: 'text/xml',
-          projectId: payload.projectId,
-          documentId: payload.documentId,
-          key: payload.key,
-          token: payload.token,
-          supabaseURL: payload.serverURL,
-          userId: payload.userId,
-          language: payload.outputLanguage,
-          successMessage: translations(payload.nameOut).success[
-            payload.outputLanguage
-          ],
-          gotoMessage: translations(payload.nameOut).goto[
-            payload.outputLanguage
-          ],
-        })
-        .unwrap();
+      const res = await uploadDocumentToRS({
+        id: id,
+        documentData: tei,
+        name: `${payload.nameOut}.xml`,
+        type: 'text/xml',
+        projectId: payload.projectId,
+        documentId: payload.documentId,
+        key: payload.key,
+        token: payload.token,
+        supabaseURL: payload.serverURL,
+        userId: payload.userId,
+        language: payload.outputLanguage,
+        successMessage: translations(payload.nameOut).success[
+          payload.outputLanguage
+        ],
+        gotoMessage: translations(payload.nameOut).goto[
+          payload.outputLanguage
+        ],
+      });
 
       if (!res) {
         throw new Error('Failed to upload document');
       }
+
+      return {
+        documentId: res.documentId,
+        entityCount: ner.entries.length,
+      };
     }
   },
 });

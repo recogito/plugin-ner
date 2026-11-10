@@ -1,6 +1,6 @@
-import { task, logger } from '@trigger.dev/sdk/v3';
+import { logger } from '@trigger.dev/sdk/v3';
 import type { NERResults, TagTypes } from '../types';
-import { off } from 'process';
+import { chunkText } from '../chunkText.js';
 
 /*
 DATE, TIME, DURATION, SET, MONEY, NUMBER, ORDINAL, PERCENT, PERSON, LOCATION, ORGANIZATION, MISC, CAUSE_OF_DEATH, CITY, COUNTRY, CRIMINAL_CHARGE, EMAIL, IDEOLOGY, NATIONALITY, RELIGION, STATE_OR_PROVINCE, TITLE, URL
@@ -143,40 +143,14 @@ const CoreNLPUrlDE =
 
 const MAX_LENGTH = 5000;
 
-export const doStanfordNlp = task({
-  id: 'do-nlp-ner',
-  run: async (
-    payload: {
-      data: string;
-      language: 'en' | 'de';
-      outputLanguage: 'en' | 'de';
-    },
-    { ctx }
-  ) => {
+export const doStanfordNlp = async (
+  payload: {
+    data: string;
+    language: 'en' | 'de';
+    outputLanguage: 'en' | 'de';
+  }
+) => {
     const { data, language, outputLanguage } = payload;
-
-    const smartChunk = (str: string) => {
-      const chunks = [];
-      const iters = Math.ceil(str.length / MAX_LENGTH);
-
-      // We need to be sure we break up strings on spaces
-      let offset = 0;
-      for (let i = 0; i < iters; i++) {
-        let chunk = str.substring(offset, offset + MAX_LENGTH);
-
-        // Find the next space
-        const idx = str.indexOf(' ', offset + MAX_LENGTH);
-
-        if (idx === -1 && i === iters - 1) {
-          chunks.push(chunk);
-        } else {
-          chunks.push(str.substring(offset, idx));
-          offset = idx + 1;
-        }
-      }
-
-      return chunks;
-    };
 
     const url = language === 'en' ? CoreNLPUrlEN : CoreNLPUrlDE;
     const params = new URLSearchParams({
@@ -186,13 +160,11 @@ export const doStanfordNlp = task({
       }),
     });
 
-    const chunks = smartChunk(data);
-
-    let offset = 0;
+    const chunks = chunkText(data, MAX_LENGTH);
     let ret: NERResults = { entries: [] };
 
     for (let i = 0; i < chunks.length; i++) {
-      const chunk = chunks[i];
+      const { text: chunk, start: offset } = chunks[i];
 
       logger.info(`Sending part ${i + 1} of ${chunks.length}`);
       const resp = await fetch(`${url}/?${params}`, {
@@ -225,7 +197,6 @@ export const doStanfordNlp = task({
           }
         }
 
-        offset += chunk.length + 1; // Account for the last space
       } else {
         logger.error(resp.statusText);
         throw new Error(resp.statusText);
@@ -233,5 +204,4 @@ export const doStanfordNlp = task({
     }
 
     return { ner: ret };
-  },
-});
+};
