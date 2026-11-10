@@ -14,8 +14,8 @@ const translations = (docName: string) => ({
     de: `Your document, ${docName}, has successfully been processed through NER and is now available in your project`,
   },
   failure: {
-    en: `There was an error creating your document, ${docName}.`,
-    de: `There was an error creating your document, ${docName}.`,
+    en: `NER on "${docName}" could not be completed. Please try again, or contact your administrator if the problem continues.`,
+    de: `NER on "${docName}" could not be completed. Please try again, or contact your administrator if the problem continues.`,
   },
   goto: {
     en: 'Go to your project',
@@ -145,6 +145,44 @@ export const stanfordCore = task({
         documentId: res.documentId,
         entityCount: ner.entries.length,
       };
+    }
+  },
+  onFailure: async ({ payload, error }) => {
+    // notify the user on failure
+    logger.error('NER run failed', { error });
+
+    try {
+      const supabase = createClient(payload.serverURL, payload.key, {
+        global: {
+          headers: {
+            Authorization: `Bearer ${payload.token}`,
+          },
+        },
+      });
+
+      const { error: notifyError } = await supabase
+        .from('notifications')
+        .insert({
+          target_user_id: payload.userId,
+          message: translations(payload.nameOut).failure[
+            payload.outputLanguage
+          ],
+          action_url: `/${payload.outputLanguage}/projects/${payload.projectId}`,
+          action_message: translations(payload.nameOut).goto[
+            payload.outputLanguage
+          ],
+          message_type: 'ERROR',
+        });
+
+      if (notifyError) {
+        logger.error('Failed to send failure notification', {
+          message: notifyError.message,
+        });
+      }
+    } catch (notifyException) {
+      logger.error('Failed to send failure notification', {
+        error: notifyException,
+      });
     }
   },
 });
