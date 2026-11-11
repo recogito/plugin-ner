@@ -1,11 +1,17 @@
 import test, { mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { parseXML } from '@recogito/standoff-converter';
+import { heartbeats as coreHeartbeats } from '@trigger.dev/core/v3';
+import { StandardHeartbeatsManager } from '../node_modules/@trigger.dev/core/dist/esm/v3/heartbeats/manager.js';
 
 process.env.CORENLP_URL_EN = 'https://corenlp-en.test';
 process.env.CORENLP_URL_DE = 'https://corenlp-de.test';
 const state = { tasks: [], logs: [], uploads: [], mentionLimit: 1 };
 mock.module('@trigger.dev/sdk/v3', { namedExports: {
+  heartbeats: { async yield() {
+    state.yieldCalls = (state.yieldCalls || 0) + 1;
+    if (state.yieldHook) await state.yieldHook();
+  } },
   logger: { info(...args) { state.logs.push(args); }, log() {}, error() {} },
   task(options) { state.tasks.push(options.id); return options; },
 } });
@@ -26,6 +32,7 @@ mock.module('tus-js-client', { namedExports: {
 const { stanfordCore } = await import('../dist/trigger/stanfordCore.js');
 const { doStanfordNlp } = await import('../dist/trigger/tasks/doStandfordNlp.js');
 const { chunkText } = await import('../dist/trigger/chunkText.js');
+const { nerToXML } = await import('../dist/trigger/tasks/nerToXML.js');
 const payload = { serverURL: 'https://supabase.test', key: 'public-test-key',
   token: 'test-user-session', userId: 'test-user', projectId: 'test-project',
   documentId: 'test-source', nameOut: 'NER test', language: 'en', outputLanguage: 'en' };
@@ -143,6 +150,56 @@ test('aggregate entity result can exceed the historical offload threshold withou
   const { ner } = await doStanfordNlp({ data: 'Berlin '.repeat(160000), language: 'en', outputLanguage: 'en' });
   assert.ok(Buffer.byteLength(JSON.stringify(ner)) > 128 * 1024);
   assert.deepEqual(state.tasks, ['stanford-core']);
+});
+
+test('dense large XML conversion keeps SDK heartbeats running and retains annotations', async () => {
+  setup('');
+  const text = 'Berlin 😀 '.repeat(150000);
+  const originalXML = `<TEI xmlns="http://www.tei-c.org/ns/1.0"><teiHeader><fileDesc/></teiHeader><text><body><p>${text}</p></body></text></TEI>`;
+  const original = parseXML(originalXML);
+  const entries = Array.from({ length: 2000 }, (_, i) => ({
+    text: 'Berlin', startIndex: i * 750, endIndex: i * 750 + 6,
+    localizedTag: 'Location', inlineTag: 'placeName', attributes: {},
+  }));
+  // Use the installed SDK's real heartbeat manager with a shortened interval;
+  // no Trigger API/network is involved. A synchronous loop starves this timer.
+  const manager = new StandardHeartbeatsManager(10);
+  let completed = false;
+  let liveHeartbeats = 0;
+  manager.registerListener(async () => { if (!completed) liveHeartbeats++; });
+  coreHeartbeats.setGlobalManager(manager);
+  state.yieldCalls = 0;
+  state.yieldHook = () => coreHeartbeats.yield();
+  manager.startHeartbeat('local-test');
+  let result;
+  try {
+    result = await nerToXML({ nerData: { entries }, text, originalXML });
+    completed = true;
+    assert.ok(liveHeartbeats > 0, 'heartbeats must run before conversion completes');
+    assert.ok(state.yieldCalls >= entries.length);
+  } finally {
+    manager.stopHeartbeat();
+    coreHeartbeats.disable();
+    delete state.yieldHook;
+  }
+  const parsed = parseXML(result.tei);
+  // Converter.text() also includes taxonomy labels added to teiHeader; compare
+  // the actual document body and resolve targets against the original source.
+  assert.ok(parsed.xml().getElementsByTagName('body')[0].textContent === text);
+  const annotations = parsed.xml().getElementsByTagName('annotation');
+  assert.equal(annotations.length, entries.length);
+  for (const i of [0, 1000, entries.length - 1]) {
+    const target = annotations[i].getAttribute('target');
+    const [startTarget, endTarget] = target.split(' ');
+    const start = original.getCharacterOffset(startTarget);
+    const end = original.getCharacterOffset(endTarget);
+    assert.equal(start, entries[i].startIndex);
+    assert.equal(end, entries[i].endIndex);
+    assert.equal(text.slice(start, end), 'Berlin');
+  }
+  const messages = state.logs.map(x => x[0]);
+  assert.ok(messages.includes('NER annotation progress'));
+  assert.ok(messages.includes('NER XML conversion completed'));
 });
 
 test('NLP failure propagates and does not publish an output document', async () => {
