@@ -101,6 +101,8 @@ export const stanfordCore = task({
         outputLanguage: payload.outputLanguage,
       });
 
+      logger.info('NLP NER completed', { entityCount: ner.entries.length });
+
       const { tei } = await nerToXML({
         nerData: ner,
         text,

@@ -3,6 +3,7 @@ import { parseXML } from '@recogito/standoff-converter';
 import { DOMParser, XMLSerializer } from '@xmldom/xmldom';
 import type { Element as XmlElement } from '@xmldom/xmldom';
 import * as uuid from 'uuid';
+import { heartbeats, logger } from '@trigger.dev/sdk/v3';
 
 /**
  * Backward-compat shim: older `@recogito/standoff-converter` versions put tag
@@ -88,26 +89,43 @@ export const nerToXML = async (
   `;
     }
 
+    const startedAt = Date.now();
+    logger.info('Parsing NER XML', { entityCount: nerData.entries.length });
+    await heartbeats.yield();
+
     const standoff = parseXML(xml);
 
     const standoffId = uuid.v4();
     standoff.addStandOff(standoffId);
+    logger.info('Adding NER annotations', { entityCount: nerData.entries.length });
 
     for (let i = 0; i < nerData.entries.length; i++) {
+      await heartbeats.yield();
+
       const entry = nerData.entries[i];
 
       standoff.addStandOffTag(standoffId, entry.startIndex, entry.endIndex, {
         label: entry.localizedTag,
         id: entry.inlineTag,
       });
-      // standoff.addStandOffTag(
-      //   standoffId,
-      //   entry.startIndex,
-      //   entry.endIndex,
-      //   entry.localizedTag
-      // );
+
+      if ((i + 1) % 1000 === 0 || i + 1 === nerData.entries.length) {
+        logger.info('NER annotation progress', {
+          completed: i + 1,
+          total: nerData.entries.length,
+          elapsedMs: Date.now() - startedAt,
+        });
+      }
     }
 
+    await heartbeats.yield();
+    logger.info('Serializing NER XML', { entityCount: nerData.entries.length });
+
     const tei = hoistAnaOntoAnnotations(standoff.xmlString());
+
+    logger.info('NER XML conversion completed', {
+      elapsedMs: Date.now() - startedAt,
+    });
+
     return { tei };
 };
