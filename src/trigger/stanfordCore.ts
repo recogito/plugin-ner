@@ -11,15 +11,15 @@ import { xmlToPlainText } from './tasks/xmlToPlainText.js';
 const translations = (docName: string) => ({
   success: {
     en: `Your document, ${docName}, has successfully been processed through NER and is now available in your project`,
-    de: `Your document, ${docName}, has successfully been processed through NER and is now available in your project`,
+    de: `Dein Dokument "${docName}" wurde erfolgreich per NER verarbeitet und ist nun im Projekt verfügbar.`,
   },
   failure: {
-    en: `There was an error creating your document, ${docName}.`,
-    de: `There was an error creating your document, ${docName}.`,
+    en: `NER on "${docName}" could not be completed. Please try again, or contact your administrator if the problem continues.`,
+    de: `Die NER-Verarbeitung von "${docName}" konnte nicht abgeschlossen werden. Bitte versuche es erneut oder wende Dich an Deine Administratorin bzw. Deinen Administrator.`,
   },
   goto: {
     en: 'Go to your project',
-    de: 'Go to your project',
+    de: 'Zu Deinem Projekt',
   },
 });
 
@@ -145,6 +145,44 @@ export const stanfordCore = task({
         documentId: res.documentId,
         entityCount: ner.entries.length,
       };
+    }
+  },
+  onFailure: async ({ payload, error }) => {
+    // notify the user on failure
+    logger.error('NER run failed', { error });
+
+    try {
+      const supabase = createClient(payload.serverURL, payload.key, {
+        global: {
+          headers: {
+            Authorization: `Bearer ${payload.token}`,
+          },
+        },
+      });
+
+      const { error: notifyError } = await supabase
+        .from('notifications')
+        .insert({
+          target_user_id: payload.userId,
+          message: translations(payload.nameOut).failure[
+            payload.outputLanguage
+          ],
+          action_url: `/${payload.outputLanguage}/projects/${payload.projectId}`,
+          action_message: translations(payload.nameOut).goto[
+            payload.outputLanguage
+          ],
+          message_type: 'ERROR',
+        });
+
+      if (notifyError) {
+        logger.error('Failed to send failure notification', {
+          message: notifyError.message,
+        });
+      }
+    } catch (notifyException) {
+      logger.error('Failed to send failure notification', {
+        error: notifyException,
+      });
     }
   },
 });
