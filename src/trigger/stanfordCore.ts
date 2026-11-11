@@ -11,15 +11,15 @@ import { xmlToPlainText } from './tasks/xmlToPlainText.js';
 const translations = (docName: string) => ({
   success: {
     en: `Your document, ${docName}, has successfully been processed through NER and is now available in your project`,
-    de: `Your document, ${docName}, has successfully been processed through NER and is now available in your project`,
+    de: `Dein Dokument "${docName}" wurde erfolgreich per NER verarbeitet und ist nun im Projekt verfügbar.`,
   },
   failure: {
     en: `NER on "${docName}" could not be completed. Please try again, or contact your administrator if the problem continues.`,
-    de: `NER on "${docName}" could not be completed. Please try again, or contact your administrator if the problem continues.`,
+    de: `Die NER-Verarbeitung von "${docName}" konnte nicht abgeschlossen werden. Bitte versuche es erneut oder wende Dich an Deine Administratorin bzw. Deinen Administrator.`,
   },
   goto: {
     en: 'Go to your project',
-    de: 'Go to your project',
+    de: 'Zu Deinem Projekt',
   },
 });
 
