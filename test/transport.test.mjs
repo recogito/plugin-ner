@@ -33,6 +33,7 @@ const { stanfordCore } = await import('../dist/trigger/stanfordCore.js');
 const { doStanfordNlp } = await import('../dist/trigger/tasks/doStandfordNlp.js');
 const { chunkText } = await import('../dist/trigger/chunkText.js');
 const { nerToXML } = await import('../dist/trigger/tasks/nerToXML.js');
+const { indexedXPointers } = await import('../dist/trigger/indexedXPointers.js');
 const payload = { serverURL: 'https://supabase.test', key: 'public-test-key',
   token: 'test-user-session', userId: 'test-user', projectId: 'test-project',
   documentId: 'test-source', nameOut: 'NER test', language: 'en', outputLanguage: 'en' };
@@ -200,6 +201,59 @@ test('dense large XML conversion keeps SDK heartbeats running and retains annota
   const messages = state.logs.map(x => x[0]);
   assert.ok(messages.includes('NER annotation progress'));
   assert.ok(messages.includes('NER XML conversion completed'));
+});
+
+test('indexed targets match converter pointers across Unicode, markup, IDs and boundaries', async () => {
+  const sources = [
+    '<TEI xmlns="http://www.tei-c.org/ns/1.0"><teiHeader><fileDesc/></teiHeader><text><body><p>Berlin 😀<hi>München</hi> end.</p><p>Next <lb/>line.</p></body></text></TEI>',
+    '<TEI xmlns="http://www.tei-c.org/ns/1.0" xml:id="source"><teiHeader><fileDesc/></teiHeader><text><body> A<p xml:id="p1">B<hi>C</hi>D</p><p>E</p> F</body></text></TEI>',
+  ];
+  for (const xml of sources) {
+    const original = parseXML(xml);
+    const offsets = Array.from({ length: original.text().length }, (_, i) => i);
+    // Duplicate and unsorted boundaries are normal for overlapping entities.
+    const actual = await indexedXPointers(original.tokens, [...offsets].reverse().concat(offsets));
+    for (const offset of offsets) assert.equal(actual.get(offset), original.getXPointer(offset));
+  }
+});
+
+test('bulk conversion preserves existing markup, annotations and taxonomy', async () => {
+  setup('');
+  const xml = '<TEI xmlns="http://www.tei-c.org/ns/1.0"><teiHeader><fileDesc/><encodingDesc><classDecl><taxonomy xml:id="existing"><category xml:id="old"><catDesc>Old label</catDesc></category></taxonomy></classDecl></encodingDesc></teiHeader><standOff xml:id="previous"><listAnnotation><annotation xml:id="old-annotation" target="/TEI[1]/text[1]/body[1]/p[1]::0 /TEI[1]/text[1]/body[1]/p[1]::6"><rs ana="#old"/></annotation></listAnnotation></standOff><text><body><p xml:id="source-p">Berlin &amp; <hi>München 😀</hi>.</p></body></text></TEI>';
+  const original = parseXML(xml);
+  const text = original.text();
+  const startIndex = text.indexOf('München');
+  const { tei } = await nerToXML({ originalXML: xml, text, nerData: { entries: [
+    { text: 'München', startIndex, endIndex: startIndex + 7, localizedTag: 'Location', inlineTag: 'placeName', attributes: {} },
+  ] } });
+  assert.match(tei, /xml:id="old-annotation"/);
+  assert.match(tei, /xml:id="existing"/);
+  assert.match(tei, /<hi>München 😀<\/hi>/);
+  assert.match(tei, /xml:id="source-p"/);
+  assert.equal((tei.match(/<annotation\b/g) || []).length, 2);
+});
+
+test('bulk conversion handles 61,683 annotations over a large multi-paragraph source', async () => {
+  setup('');
+  const paragraphs = Array.from({ length: 2000 }, () => `<p>${'Berlin 😀 '.repeat(75)}</p>`).join('');
+  const xml = `<TEI xmlns="http://www.tei-c.org/ns/1.0"><teiHeader><fileDesc/></teiHeader><text><body>${paragraphs}</body></text></TEI>`;
+  const original = parseXML(xml);
+  const text = original.text();
+  const entries = Array.from({ length: 61683 }, (_, i) => ({
+    text: 'Berlin', startIndex: Math.floor(i * 150000 / 61683) * 10,
+    endIndex: Math.floor(i * 150000 / 61683) * 10 + 6,
+    localizedTag: 'Location', inlineTag: 'placeName', attributes: {},
+  }));
+  const startedAt = Date.now();
+  const { tei } = await nerToXML({ text, originalXML: xml, nerData: { entries } });
+  const annotations = [...tei.matchAll(/<annotation\s[^>]*target="([^"]+)"/g)];
+  assert.equal(annotations.length, entries.length);
+  assert.equal((tei.match(/<category\s/g) || []).length, 1);
+  assert.ok(tei.includes(`<body>${paragraphs}</body>`), 'source body markup must be unchanged');
+  for (const i of [0, 1000, 21000, entries.length - 1]) {
+    assert.equal(annotations[i][1], `${original.getXPointer(entries[i].startIndex)} ${original.getXPointer(entries[i].endIndex)}`);
+  }
+  console.log(JSON.stringify({ benchmark: 'bulk-61683', elapsedMs: Date.now() - startedAt, sourceBytes: Buffer.byteLength(xml), outputBytes: Buffer.byteLength(tei) }));
 });
 
 test('NLP failure propagates and does not publish an output document', async () => {
